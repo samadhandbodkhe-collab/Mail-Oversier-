@@ -1,0 +1,6 @@
+{
+  "appId": "com.sdbodkhe.tabill",
+  "appName": "भाडे बिल",
+  "webDir": "www",
+  "android": { "allowMixedContent": false }
+}

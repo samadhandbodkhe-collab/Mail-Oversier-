@@ -1,0 +1,13 @@
+{
+  "name": "ta-bill",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TA Bill - Journey Details app. Developer: S D Bodkhe, Mo 9765333960",
+  "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/cli": "^6.2.0",
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/filesystem": "^6.0.0",
+    "@capacitor/share": "^6.0.0"
+  }
+}

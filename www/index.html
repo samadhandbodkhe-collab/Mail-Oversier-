@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="mr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#b3202a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<title>प्रवास भाडे बिल</title>
+<style>
+/* Layout: one column, sticky header, two tabs (new entry / records + export). Postal red accent on cool neutrals. */
+:root{
+  --bg:#f3f4f6; --surface:#ffffff; --fg:#1c1f24; --muted:#5d6570; --line:#d9dce1;
+  --accent:#b3202a; --accent-fg:#ffffff; --accent-soft:#f9e6e7; --ok:#1d7a46; --warn:#a15c00; --danger:#b3202a;
+  --field:#ffffff; --shadow:0 1px 2px rgba(0,0,0,.08);
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#14171b; --surface:#1e2228; --fg:#eceef1; --muted:#9aa3ae; --line:#333a43;
+  --accent:#e0555e; --accent-fg:#1a0a0b; --accent-soft:#3a1d20; --ok:#4cc27d; --warn:#e0a040; --danger:#ef7078;
+  --field:#14171b; --shadow:none; color-scheme:dark;}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Devanagari","Mangal",sans-serif;
+  padding-bottom:calc(76px + env(safe-area-inset-bottom,0px));-webkit-text-size-adjust:100%}
+header{position:sticky;top:0;z-index:5;background:var(--accent);color:var(--accent-fg);
+  padding:calc(10px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-left,0px)) 10px max(16px,env(safe-area-inset-left,0px))}
+header h1{margin:0;font-size:1.15rem;font-weight:700;letter-spacing:.01em}
+header p{margin:0;font-size:.8rem;opacity:.9}
+main{max-width:640px;margin:0 auto;padding:14px max(16px,env(safe-area-inset-left,0px)) 24px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;box-shadow:var(--shadow);margin-bottom:14px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.full{grid-column:1/-1}
+@media (max-width:340px){.grid{grid-template-columns:1fr}}
+label{display:block;font-size:.82rem;font-weight:600;color:var(--muted);margin:0 0 4px}
+label small{font-weight:400}
+input,select{width:100%;min-width:0;height:46px;padding:0 10px;font:inherit;color:var(--fg);background:var(--field);border:1px solid var(--line);border-radius:8px}
+input:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+input.bad,select.bad{border-color:var(--danger);box-shadow:0 0 0 1px var(--danger)}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+button{font:inherit;font-weight:600;min-height:46px;padding:0 16px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
+button.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+button.danger{color:var(--danger)}
+button.small{min-height:36px;padding:0 12px;font-size:.85rem}
+.row>button{flex:1 1 140px}
+#err{color:var(--danger);font-size:.88rem;margin:10px 0 0;min-height:1.2em}
+h2{font-size:1rem;margin:0 0 10px}
+.tabs{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--surface);border-top:1px solid var(--line);
+  padding:0 env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);z-index:6}
+.tabs button{flex:1;border:0;border-radius:0;background:none;min-height:60px;color:var(--muted)}
+.tabs button[aria-selected=true]{color:var(--accent);box-shadow:inset 0 3px 0 var(--accent)}
+.rec{border-top:1px solid var(--line);padding:10px 0}
+.rec:first-child{border-top:0;padding-top:0}
+.rec .top{display:flex;justify-content:space-between;gap:8px;font-weight:600}
+.rec .meta{color:var(--muted);font-size:.85rem}
+.chip{display:inline-block;font-size:.75rem;font-weight:700;padding:1px 8px;border-radius:99px;background:var(--accent-soft);color:var(--accent)}
+.rec .acts{display:flex;gap:8px;margin-top:8px}
+.muted{color:var(--muted);font-size:.88rem}
+.sum{display:flex;gap:16px;flex-wrap:wrap;margin:0 0 12px;font-variant-numeric:tabular-nums}
+.sum b{font-size:1.15rem}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));max-width:92%;
+  background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:.9rem;z-index:9;text-align:center}
+.log div{display:flex;justify-content:space-between;gap:8px;border-top:1px solid var(--line);padding:6px 0;font-size:.85rem}
+.log div:first-child{border-top:0}
+#lock{position:fixed;inset:0;z-index:20;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+  padding:env(safe-area-inset-top,0px) 24px env(safe-area-inset-bottom,0px);text-align:center;overflow:auto}
+#lock h2{font-size:1.2rem;margin:0}
+.dots{display:flex;gap:14px;margin:4px 0}
+.dots i{width:16px;height:16px;border-radius:50%;border:2px solid var(--accent);display:block}
+.dots i.on{background:var(--accent)}
+.pad{display:grid;grid-template-columns:repeat(3,76px);gap:12px}
+.pad button{min-height:62px;font-size:1.4rem;padding:0;border-radius:50%;width:76px;height:62px;border-radius:14px}
+.link{background:none;border:0;color:var(--accent);min-height:36px;font-size:.88rem;text-decoration:underline;font-weight:500}
+#lockErr{color:var(--danger);min-height:1.3em;margin:0;font-size:.9rem}
+.dev{font-size:.78rem;color:var(--muted);margin:0}
+footer.dev{text-align:center;padding:4px 16px 16px}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header><h1>प्रवास भाडे बिल</h1><p>Journey Details · ऑफलाईन चालते</p></header>
+<div id="lock" hidden>
+ <h2 id="lockTitle">PIN टाका</h2>
+ <p class="muted" id="lockSub" style="margin:0"></p>
+ <div class="dots" id="dots"><i></i><i></i><i></i><i></i></div>
+ <p id="lockErr" role="alert"></p>
+ <div class="pad" id="pad">
+  <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+  <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+  <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+  <button data-k="c" aria-label="पुसा">C</button><button data-k="0">0</button><button data-k="b" aria-label="मागे">⌫</button>
+ </div>
+ <button class="link" id="skipPin" hidden>PIN नको, नंतर ठरवतो</button>
+ <button class="link" id="cancelPin" hidden>रद्द करा</button>
+ <button class="link" id="forgot" hidden>PIN विसरलात?</button>
+ <div id="wipeBox" hidden>
+  <p class="muted">PIN रीसेट केल्यास या ॲपमधील सर्व नोंदी कायमच्या पुसल्या जातात.</p>
+  <div class="row"><button class="danger" id="wipeYes">हो, सर्व पुसा</button><button id="wipeNo">नको</button></div>
+ </div>
+ <p class="dev">Developer: S D Bodkhe · Mo 9765333960</p>
+</div>
+<main>
+
+<section id="tab-new">
+ <form id="f" class="card" autocomplete="off" novalidate>
+  <h2 id="formTitle">नवीन प्रवासाची नोंद</h2>
+  <div class="grid">
+   <div><label for="fd">From Date <small>(पासून तारीख)</small></label><input id="fd" type="date" required></div>
+   <div><label for="ft">From Time <small>(वेळ)</small></label><input id="ft" type="time" required></div>
+   <div class="full"><label for="fp">From Place <small>(कोठून)</small></label><input id="fp" list="places" autocapitalize="words" required></div>
+   <div><label for="td">To Date <small>(पर्यंत तारीख)</small></label><input id="td" type="date" required></div>
+   <div><label for="tt">To Time <small>(वेळ)</small></label><input id="tt" type="time" required></div>
+   <div class="full"><label for="tp">To Place <small>(कोठे)</small></label><input id="tp" list="places" autocapitalize="words" required></div>
+   <div class="full"><label for="mode">Mode <small>(प्रवासाचे साधन)</small></label>
+     <select id="mode" required><option value="">निवडा</option><option>ST</option><option>Taxi</option><option>Auto</option><option>Rail</option><option>Bus</option></select></div>
+   <div><label for="dist">Distance (Km)</label><input id="dist" type="number" inputmode="numeric" min="0" step="1" required></div>
+   <div><label for="fare">Fare Paid <small>(₹)</small></label><input id="fare" type="number" inputmode="numeric" min="0" step="1" required></div>
+   <div class="full"><label for="rem">Remarks <small>(शेरा)</small></label><input id="rem" list="remarks"></div>
+  </div>
+  <datalist id="places"></datalist><datalist id="remarks"></datalist>
+  <p id="err" role="alert"></p>
+  <div class="row">
+   <button type="submit" class="primary" id="saveBtn">जतन करा</button>
+   <button type="button" id="retBtn">↔ परतीचा प्रवास</button>
+   <button type="button" id="clrBtn">रिकामे करा</button>
+  </div>
+  <p class="muted" style="margin:10px 0 0">“परतीचा प्रवास” दाबल्यावर कोठून/कोठे उलट होतात, मोड, अंतर आणि भाडे तेच राहते. तारीख आणि वेळ तपासा.</p>
+ </form>
+</section>
+
+<section id="tab-rec" hidden>
+ <div class="card">
+  <h2>बिलाची Excel फाईल तयार करा</h2>
+  <div class="grid">
+   <div><label for="rf">पासून तारीख</label><input id="rf" type="date"></div>
+   <div><label for="rt">पर्यंत तारीख</label><input id="rt" type="date"></div>
+  </div>
+  <div class="row" style="margin-top:10px">
+   <button class="small" id="pThis">या महिन्याचे</button>
+   <button class="small" id="pPrev">मागच्या महिन्याचे</button>
+   <button class="small" id="pAll">सर्व नोंदी</button>
+  </div>
+  <p class="sum" id="sum" style="margin-top:14px"></p>
+  <div class="row">
+   <button class="primary" id="shareBtn">WhatsApp वर शेअर करा</button>
+   <button id="dlBtn">फक्त फाईल सेव्ह करा</button>
+  </div>
+  <p class="muted" id="shareHint" style="margin:10px 0 0">शेअर दाबल्यावर फोनची शेअर यादी उघडते, त्यातून WhatsApp निवडा.</p>
+ </div>
+
+ <div class="card">
+  <h2>निवडलेल्या तारखांच्या नोंदी <span class="muted" id="cnt"></span></h2>
+  <div id="list"></div>
+ </div>
+
+ <div class="card">
+  <h2>आधी तयार केलेल्या फाईल</h2>
+  <div class="log" id="log"></div>
+ </div>
+
+ <div class="card">
+  <h2>बॅकअप</h2>
+  <p class="muted" style="margin-top:0">फोनचा ब्राउझर डेटा पुसला गेला तर नोंदी जातात. वेळोवेळी बॅकअप घ्या.</p>
+  <div class="row">
+   <button id="bkBtn">बॅकअप फाईल घ्या</button>
+   <button id="rsBtn">बॅकअप परत आणा</button>
+  </div>
+  <div class="row" style="margin-top:10px"><button id="pinBtn">PIN बदला</button></div>
+  <input type="file" id="rsFile" accept=".json,application/json" hidden>
+ </div>
+</section>
+<footer class="dev">Developer: S D Bodkhe · Mo 9765333960</footer>
+</main>
+
+<nav class="tabs" role="tablist">
+ <button role="tab" id="b-new" aria-selected="true">＋ नवीन नोंद</button>
+ <button role="tab" id="b-rec" aria-selected="false">☰ रेकॉर्ड व फाईल</button>
+</nav>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function(){
+'use strict';
+var KEY='ta_entries_v1', LOGKEY='ta_exports_v1';
+var $=function(id){return document.getElementById(id)};
+var MON=['जाने','फेब्रु','मार्च','एप्रिल','मे','जून','जुलै','ऑग','सप्टें','ऑक्टो','नोव्हें','डिसें'];
+var MONEN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function load(k){try{var v=JSON.parse(localStorage.getItem(k));return Array.isArray(v)?v:[]}catch(e){return []}}
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){toast('फोनमध्ये जतन करता आले नाही');return false}}
+var entries=load(KEY), exportsLog=load(LOGKEY), editId=null;
+
+/* ---------- helpers ---------- */
+function toast(m){var t=$('toast');t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(function(){t.hidden=true},3500)}
+function dmy(s){var p=s.split('-');return p[2]+'/'+p[1]+'/'+p[0]}
+function today(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function cap(s){ // first letter capital, rest small, for every word
+  return s.toLowerCase().replace(/(^|[\s\-\/\.\(])([^\s\-\/\.\(])/g,function(m,a,b){return a+b.toUpperCase()});
+}
+function clean(s){return s.replace(/\s+/g,' ').trim()}
+function key(e){return e.fd+' '+e.ft}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+
+/* ---------- place auto-capitalise (keeps cursor) ---------- */
+['fp','tp'].forEach(function(id){
+  var el=$(id);
+  el.addEventListener('input',function(){
+    var v=cap(el.value);
+    if(v!==el.value){var p=el.selectionStart;el.value=v;try{el.setSelectionRange(p,p)}catch(e){}}
+  });
+  el.addEventListener('blur',function(){el.value=cap(clean(el.value))});
+});
+
+/* ---------- date defaults ---------- */
+var tdTouched=false;
+$('fd').addEventListener('change',function(){if(!tdTouched||$('td').value<$('fd').value)$('td').value=$('fd').value});
+$('td').addEventListener('change',function(){tdTouched=true});
+
+function resetForm(keepDate){
+  var d=keepDate||today();
+  $('f').reset();$('fd').value=d;$('td').value=d;tdTouched=false;
+  editId=null;$('formTitle').textContent='नवीन प्रवासाची नोंद';$('saveBtn').textContent='जतन करा';
+  $('err').textContent='';clearBad();
+}
+function clearBad(){document.querySelectorAll('.bad').forEach(function(e){e.classList.remove('bad')})}
+
+/* ---------- save ---------- */
+$('f').addEventListener('submit',function(ev){
+  ev.preventDefault();clearBad();
+  $('fp').value=cap(clean($('fp').value));$('tp').value=cap(clean($('tp').value));
+  var e={id:editId||('e'+Date.now()+Math.random().toString(36).slice(2,6)),
+    fd:$('fd').value,ft:$('ft').value,fp:$('fp').value,td:$('td').value,tt:$('tt').value,tp:$('tp').value,
+    mode:$('mode').value,dist:$('dist').value.trim(),fare:$('fare').value.trim(),rem:clean($('rem').value)};
+  var req=[['fd','From Date'],['ft','From Time'],['fp','From Place'],['td','To Date'],['tt','To Time'],['tp','To Place'],['mode','Mode'],['dist','Distance'],['fare','Fare Paid']];
+  var miss=req.filter(function(r){return !e[r[0]]});
+  if(miss.length){miss.forEach(function(r){$(r[0]).classList.add('bad')});$('err').textContent='हे भरा: '+miss.map(function(r){return r[1]}).join(', ');$(miss[0][0]).focus();return}
+  if(!/^\d+$/.test(e.dist)||!/^\d+$/.test(e.fare)){
+    ['dist','fare'].forEach(function(i){if(!/^\d+$/.test(e[i]))$(i).classList.add('bad')});
+    $('err').textContent='Distance आणि Fare मध्ये फक्त पूर्ण आकडे टाका (दशांश नको).';return}
+  if(e.td+' '+e.tt<e.fd+' '+e.ft){['td','tt'].forEach(function(i){$(i).classList.add('bad')});$('err').textContent='To तारीख/वेळ ही From पेक्षा आधी असू शकत नाही.';return}
+  if(editId){entries=entries.map(function(x){return x.id===editId?e:x})}else{entries.push(e)}
+  if(!save(KEY,entries))return;
+  toast(editId?'बदल जतन केले':'नोंद जतन केली');
+  var nd=e.fd;resetForm(nd);refresh();
+});
+$('clrBtn').addEventListener('click',function(){resetForm()});
+$('retBtn').addEventListener('click',function(){
+  var s=null;
+  if($('fp').value&&$('tp').value){s={tp:$('fp').value,fp:$('tp').value,mode:$('mode').value,dist:$('dist').value,fare:$('fare').value,td:$('td').value,tt:$('tt').value}}
+  else if(entries.length){var l=entries[entries.length-1];s={tp:l.fp,fp:l.tp,mode:l.mode,dist:l.dist,fare:l.fare,td:l.td,tt:l.tt}}
+  if(!s){toast('आधी एक नोंद भरा');return}
+  resetForm(s.td||today());
+  $('fp').value=s.fp;$('tp').value=s.tp;$('mode').value=s.mode;$('dist').value=s.dist;$('fare').value=s.fare;$('ft').value=s.tt;
+  $('err').textContent='परतीचा प्रवास: To वेळ भरा, तारीख आणि शेरा तपासून जतन करा.';$('tt').focus();
+});
+
+/* ---------- tabs ---------- */
+function tab(n){
+  $('tab-new').hidden=n!=='new';$('tab-rec').hidden=n!=='rec';
+  $('b-new').setAttribute('aria-selected',n==='new');$('b-rec').setAttribute('aria-selected',n==='rec');
+  window.scrollTo(0,0);
+}
+$('b-new').onclick=function(){tab('new')};$('b-rec').onclick=function(){tab('rec');refresh()};
+
+/* ---------- records ---------- */
+var pendingDel=null;
+function pad(n){return String(n).padStart(2,'0')}
+function iso(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+function setRange(f,t){$('rf').value=f;$('rt').value=t}
+function monthRange(off){var n=new Date(),a=new Date(n.getFullYear(),n.getMonth()+off,1),b=new Date(n.getFullYear(),n.getMonth()+off+1,0);setRange(iso(a),iso(b))}
+function selected(){var f=$('rf').value,t=$('rt').value;return entries.filter(function(e){return(!f||e.fd>=f)&&(!t||e.fd<=t)}).sort(function(a,b){return key(a)<key(b)?-1:key(a)>key(b)?1:0})}
+function refresh(){
+  var sel=selected(),km=0,fr=0;sel.forEach(function(e){km+=+e.dist;fr+=+e.fare});
+  $('sum').innerHTML='<span><b>'+sel.length+'</b><br><span class="muted">नोंदी</span></span><span><b>'+km+'</b><br><span class="muted">एकूण Km</span></span><span><b>₹ '+fr+'</b><br><span class="muted">एकूण भाडे</span></span>';
+  $('cnt').textContent='('+sel.length+')';
+  $('list').innerHTML=sel.length?sel.slice().reverse().map(function(e){
+    return '<div class="rec"><div class="top"><span>'+esc(e.fp)+' → '+esc(e.tp)+'</span><span class="chip">'+esc(e.mode)+'</span></div>'+
+    '<div class="meta">'+dmy(e.fd)+' '+e.ft+' – '+dmy(e.td)+' '+e.tt+'</div>'+
+    '<div class="meta">'+e.dist+' Km · ₹ '+e.fare+(e.rem?' · '+esc(e.rem):'')+'</div>'+
+    '<div class="acts">'+(pendingDel===e.id?
+      '<button class="small danger" data-a="yes" data-id="'+e.id+'">हो, काढून टाका</button><button class="small" data-a="no" data-id="'+e.id+'">नको</button>':
+      '<button class="small" data-a="edit" data-id="'+e.id+'">बदला</button><button class="small danger" data-a="del" data-id="'+e.id+'">काढा</button>')+'</div></div>'
+  }).join(''):'<p class="muted">या तारखांमध्ये नोंद नाही. तारखा बदला किंवा “नवीन नोंद” मधून भरा.</p>';
+  $('places').innerHTML=uniq('fp','tp');$('remarks').innerHTML=uniq('rem');
+  $('log').innerHTML=exportsLog.length?exportsLog.slice().reverse().slice(0,15).map(function(l){return '<div><span>'+esc(l.name)+'</span><span class="muted">'+esc(l.when)+' · '+l.n+' नोंदी</span></div>'}).join(''):'<p class="muted">अजून फाईल तयार केलेली नाही.</p>';
+}
+function uniq(){var f=[].slice.call(arguments),s={};entries.forEach(function(e){f.forEach(function(k){if(e[k])s[e[k]]=1})});return Object.keys(s).sort().map(function(v){return '<option value="'+esc(v)+'">'}).join('')}
+['rf','rt'].forEach(function(i){$(i).addEventListener('change',refresh)});
+$('pThis').onclick=function(){monthRange(0);refresh()};$('pPrev').onclick=function(){monthRange(-1);refresh()};
+$('pAll').onclick=function(){setRange('','');refresh()};
+$('list').addEventListener('click',function(ev){
+  var b=ev.target.closest('button');if(!b)return;var id=b.dataset.id,a=b.dataset.a;
+  if(a==='del'){pendingDel=id;refresh()}
+  else if(a==='no'){pendingDel=null;refresh()}
+  else if(a==='yes'){entries=entries.filter(function(e){return e.id!==id});pendingDel=null;save(KEY,entries);refresh();toast('नोंद काढली')}
+  else if(a==='edit'){
+    var e=entries.filter(function(x){return x.id===id})[0];if(!e)return;
+    ['fd','ft','fp','td','tt','tp','mode','dist','fare','rem'].forEach(function(k){$(k).value=e[k]});
+    tdTouched=true;editId=id;$('formTitle').textContent='नोंद बदला';$('saveBtn').textContent='बदल जतन करा';$('err').textContent='';tab('new');
+  }
+});
+
+/* ---------- XLSX writer (no libraries) ---------- */
+var HEAD=['From Date','From Time','From Place','To Date','To Time','To Place','Mode','Distance (Km)','Fare Paid','Remarks'];
+var CT=null;function crc(b){if(!CT){CT=[];for(var n=0;n<256;n++){var c=n;for(var k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;CT[n]=c>>>0}}
+  var c=0xFFFFFFFF;for(var i=0;i<b.length;i++)c=CT[(c^b[i])&255]^(c>>>8);return(c^0xFFFFFFFF)>>>0}
+function zip(files){
+  var enc=new TextEncoder(),parts=[],cd=[],off=0;
+  files.forEach(function(f){
+    var nm=enc.encode(f.name),d=enc.encode(f.data),c=crc(d);
+    var h=new DataView(new ArrayBuffer(30));
+    h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x0800,true);h.setUint16(8,0,true);
+    h.setUint16(10,0,true);h.setUint16(12,0x21,true);h.setUint32(14,c,true);h.setUint32(18,d.length,true);h.setUint32(22,d.length,true);h.setUint16(26,nm.length,true);h.setUint16(28,0,true);
+    parts.push(new Uint8Array(h.buffer),nm,d);
+    var z=new DataView(new ArrayBuffer(46));
+    z.setUint32(0,0x02014b50,true);z.setUint16(4,20,true);z.setUint16(6,20,true);z.setUint16(8,0x0800,true);z.setUint16(10,0,true);
+    z.setUint16(12,0,true);z.setUint16(14,0x21,true);z.setUint32(16,c,true);z.setUint32(20,d.length,true);z.setUint32(24,d.length,true);z.setUint16(28,nm.length,true);
+    z.setUint32(42,off,true);
+    cd.push(new Uint8Array(z.buffer),nm);off+=30+nm.length+d.length;
+  });
+  var cs=0;cd.forEach(function(p){cs+=p.length});
+  var e=new DataView(new ArrayBuffer(22));e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,cs,true);e.setUint32(16,off,true);
+  return new Blob(parts.concat(cd,[new Uint8Array(e.buffer)]),{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+function x(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function colL(i){return String.fromCharCode(65+i)}
+function buildXlsx(rows){
+  var all=[HEAD].concat(rows);
+  var sd=all.map(function(r,ri){return '<row r="'+(ri+1)+'">'+r.map(function(v,ci){
+    return '<c r="'+colL(ci)+(ri+1)+'" t="inlineStr" s="'+(ri?2:1)+'"><is><t xml:space="preserve">'+x(v)+'</t></is></c>'}).join('')+'</row>'}).join('');
+  var W=[13,11,18,13,11,18,10,15,11,30];
+  var sheet='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols>'+
+    W.map(function(w,i){return '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'" customWidth="1"/>'}).join('')+'</cols><sheetData>'+sd+'</sheetData></worksheet>';
+  var styles='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Arial"/></font><font><b/><sz val="11"/><name val="Arial"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="49" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyNumberFormat="1"/><xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+  return zip([
+   {name:'[Content_Types].xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'},
+   {name:'_rels/.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'},
+   {name:'xl/workbook.xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="JourneyDetails" sheetId="1" r:id="rId1"/></sheets></workbook>'},
+   {name:'xl/_rels/workbook.xml.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'},
+   {name:'xl/styles.xml',data:styles},
+   {name:'xl/worksheets/sheet1.xml',data:sheet}
+  ]);
+}
+function makeFile(){
+  var sel=selected();if(!sel.length){toast('निवडलेल्या तारखांमध्ये एकही नोंद नाही');return null}
+  if($('rf').value&&$('rt').value&&$('rt').value<$('rf').value){toast('“पर्यंत” तारीख “पासून” पेक्षा आधीची आहे');return null}
+  var rows=sel.map(function(e){return [dmy(e.fd),e.ft,e.fp,dmy(e.td),e.tt,e.tp,e.mode,String(e.dist),String(e.fare),e.rem]});
+  var f=$('rf').value||sel[0].fd,t=$('rt').value||sel[sel.length-1].fd,name='JourneyDetails_'+f.split('-').reverse().join('-')+'_to_'+t.split('-').reverse().join('-')+'.xlsx';
+  return {blob:buildXlsx(rows),name:name,n:sel.length};
+}
+function logExport(f){
+  var d=new Date();exportsLog.push({name:f.name,n:f.n,when:dmy(today())+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')});
+  exportsLog=exportsLog.slice(-50);save(LOGKEY,exportsLog);refresh();
+}
+var NATIVE=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());
+function nativeShare(blob,name){
+  return new Promise(function(res,rej){
+    var r=new FileReader();r.onerror=rej;
+    r.onload=function(){
+      var P=window.Capacitor.Plugins;
+      P.Filesystem.writeFile({path:name,data:String(r.result).split(',')[1],directory:'CACHE'})
+       .then(function(w){return P.Share.share({title:name,files:[w.uri],dialogTitle:'शेअर करा'})}).then(res,rej);
+    };
+    r.readAsDataURL(blob);
+  });
+}
+if(NATIVE){$('dlBtn').hidden=true;$('shareHint').textContent='शेअर दाबल्यावर शेअर यादी उघडते. WhatsApp निवडा, किंवा फोनमध्ये ठेवण्यासाठी “Files / Save” निवडा.'}
+function download(blob,name){
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},4000);
+}
+$('dlBtn').addEventListener('click',function(){var f=makeFile();if(!f)return;download(f.blob,f.name);logExport(f);toast('फाईल सेव्ह केली: '+f.name)});
+$('shareBtn').addEventListener('click',function(){
+  var f=makeFile();if(!f)return;
+  if(NATIVE){nativeShare(f.blob,f.name).then(function(){logExport(f)}).catch(function(e){if(!/cancel/i.test(String(e&&e.message||e)))toast('शेअर होऊ शकले नाही')});return}
+  var file=new File([f.blob],f.name,{type:f.blob.type});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    navigator.share({files:[file],title:f.name}).then(function(){logExport(f)}).catch(function(e){if(e&&e.name!=='AbortError'){download(f.blob,f.name);logExport(f);toast('शेअर होऊ शकले नाही. फाईल सेव्ह केली, WhatsApp मधून जोडा.')}});
+  }else{
+    download(f.blob,f.name);logExport(f);
+    toast('फाईल सेव्ह केली. WhatsApp उघडून “जोडा → दस्तऐवज” मधून पाठवा.');
+  }
+});
+
+/* ---------- backup ---------- */
+$('bkBtn').addEventListener('click',function(){var bb=new Blob([JSON.stringify({v:1,entries:entries})],{type:'application/json'}),bn='TA_Backup_'+today()+'.json';if(NATIVE){nativeShare(bb,bn).catch(function(){});return}download(new Blob([JSON.stringify({v:1,entries:entries})],{type:'application/json'}),'TA_Backup_'+today()+'.json');toast('बॅकअप फाईल सेव्ह केली')});
+$('rsBtn').addEventListener('click',function(){$('rsFile').click()});
+$('rsFile').addEventListener('change',function(){
+  var f=this.files[0];if(!f)return;var r=new FileReader();
+  r.onload=function(){try{var d=JSON.parse(r.result);if(!d||!Array.isArray(d.entries))throw 0;
+    var have={};entries.forEach(function(e){have[e.id]=1});var add=d.entries.filter(function(e){return e&&e.id&&!have[e.id]&&e.fd&&e.fp});
+    entries=entries.concat(add);save(KEY,entries);refresh();toast(add.length+' नोंदी परत आल्या')}catch(e){toast('ही बॅकअप फाईल बरोबर नाही')}};
+  r.readAsText(f);this.value='';
+});
+
+/* ---------- PIN lock ---------- */
+var PINKEY='ta_pin_v1',mode='enter',buf='',first='',hiddenAt=0,wipeAsk=false;
+function getPin(){try{return JSON.parse(localStorage.getItem(PINKEY))}catch(e){return null}}
+function hashPin(p,salt){
+  var str=salt+':'+p;
+  if(window.crypto&&crypto.subtle){return crypto.subtle.digest('SHA-256',new TextEncoder().encode(str)).then(function(b){return Array.prototype.map.call(new Uint8Array(b),function(x){return x.toString(16).padStart(2,'0')}).join('')})}
+  var h=5381;for(var r=0;r<2000;r++)for(var i=0;i<str.length;i++)h=((h<<5)+h+str.charCodeAt(i))|0;return Promise.resolve('f'+h)
+}
+function pinOn(){var p=getPin();return !!(p&&p.h)}
+function showLock(m,opts){
+  opts=opts||{};mode=m;buf='';first='';wipeAsk=false;
+  var T={enter:['PIN टाका','४ अंकी PIN'],set1:['नवीन PIN ठेवा','४ अंकी PIN निवडा'],set2:['PIN पुन्हा टाका','खात्री करण्यासाठी'],old:['सध्याचा PIN टाका','PIN बदलण्यासाठी']}[m];
+  $('lockTitle').textContent=T[0];$('lockSub').textContent=T[1];$('lockErr').textContent='';
+  $('skipPin').hidden=!(m==='set1'&&opts.first);$('cancelPin').hidden=!opts.cancel;$('forgot').hidden=!(m==='enter'||m==='old');
+  $('wipeBox').hidden=true;$('pad').hidden=false;dots();$('lock').hidden=false;
+}
+function dots(){[].forEach.call($('dots').children,function(d,i){d.className=i<buf.length?'on':''})}
+function unlock(){$('lock').hidden=true;buf=''}
+function press(k){
+  if(k==='c')buf='';else if(k==='b')buf=buf.slice(0,-1);else if(buf.length<4)buf+=k;
+  dots();$('lockErr').textContent='';
+  if(buf.length===4)setTimeout(check,120);
+}
+function check(){
+  var p=buf;
+  if(mode==='enter'||mode==='old'){
+    var st=getPin();
+    hashPin(p,st.s).then(function(h){
+      if(h===st.h){if(mode==='enter')unlock();else showLock('set1',{cancel:true})}
+      else{buf='';dots();$('lockErr').textContent='PIN चुकीचा आहे'}
+    });
+  }else if(mode==='set1'){first=p;buf='';var c=$('skipPin').hidden,cc=$('cancelPin').hidden;showLock('set2',{cancel:!cc});first=p}
+  else if(mode==='set2'){
+    if(p!==first){var cc2=!$('cancelPin').hidden;showLock('set1',{cancel:cc2});$('lockErr').textContent='दोन्ही PIN जुळले नाहीत, पुन्हा करा';return}
+    var salt=String(Date.now())+Math.random().toString(36).slice(2);
+    hashPin(p,salt).then(function(h){try{localStorage.setItem(PINKEY,JSON.stringify({s:salt,h:h}))}catch(e){}unlock();toast('PIN ठेवला');$('pinBtn').textContent='PIN बदला'})
+  }
+}
+$('pad').addEventListener('click',function(e){var b=e.target.closest('button');if(b)press(b.dataset.k)});
+document.addEventListener('keydown',function(e){if($('lock').hidden||$('pad').hidden)return;if(/^\d$/.test(e.key))press(e.key);else if(e.key==='Backspace')press('b')});
+$('skipPin').onclick=function(){try{localStorage.setItem(PINKEY,JSON.stringify({off:1}))}catch(e){}unlock();$('pinBtn').textContent='PIN चालू करा'};
+$('cancelPin').onclick=function(){unlock()};
+$('forgot').onclick=function(){$('wipeBox').hidden=false;$('pad').hidden=true};
+$('wipeNo').onclick=function(){showLock(mode)};
+$('wipeYes').onclick=function(){try{localStorage.removeItem(KEY);localStorage.removeItem(LOGKEY);localStorage.removeItem(PINKEY)}catch(e){}location.reload()};
+$('pinBtn').onclick=function(){if(pinOn())showLock('old',{cancel:true});else showLock('set1',{cancel:true})};
+document.addEventListener('visibilitychange',function(){
+  if(document.hidden){hiddenAt=Date.now()}
+  else if(pinOn()&&hiddenAt&&Date.now()-hiddenAt>60000&&$('lock').hidden){showLock('enter')}
+});
+
+/* ---------- start ---------- */
+resetForm();monthRange(0);refresh();
+var _p=getPin();if(!_p)showLock('set1',{first:true});else if(_p.h)showLock('enter');else $('pinBtn').textContent='PIN चालू करा';
+try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
+try{if(!NATIVE&&'serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost'))navigator.serviceWorker.register('sw.js')}catch(e){}
+})();
+</script>
+</body>
+</html>
